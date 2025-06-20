@@ -1,6 +1,6 @@
 # AI Note Summarizer CLI
 
-A command-line application that uses the Cohere AI API to summarize large text inputs into concise summaries. Built with modular object-oriented Python design. Notes and their summaries are stored in memory and can be saved to or loaded from disk.
+A command-line application that uses the OpenAI API to summarize large text inputs into concise summaries. Built with modular object-oriented Python design. Notes and their summaries are stored in memory and can be saved to or loaded from disk.
 
 ---
 
@@ -30,9 +30,9 @@ summarizer/
 ## 🚀 Getting Started
 
 ### 1. Install dependencies
-pip install cohere
+pip install openai
 
-### 2. Set your Cohere API key
+### 2. Set your OpenAI API key
 
 You can input it at runtime, or store it in an .env file and load it with python-dotenv (optional extension).
 
@@ -53,7 +53,7 @@ python main.py
 ## 🧱 Tech Stack
 
 - Python 3.x  
-- Cohere AI SDK  
+- OpenAI SDK  
 - JSON for persistence  
 - Object-Oriented Design (no external frameworks)
 
