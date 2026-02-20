@@ -1,61 +1,90 @@
-# AI Note Summarizer CLI
+﻿# AI Summarizer FastAPI Service
 
-A command-line application that uses the OpenAI API to summarize large text inputs into concise summaries. Built with modular object-oriented Python design. Notes and their summaries are stored in memory and can be saved to or loaded from disk.
+This project is a containerized FastAPI backend that ingests raw text, chunks it, summarizes each chunk with OpenAI, and stores all results in SQLite via SQLAlchemy.
 
----
+## Project Structure
 
-## 🧠 Features
-
-- Accepts long user-inputted text
-- Automatically splits and summarizes using AI
-- Stores notes as {"text": ..., "summary": ...}
-- View all stored notes
-- Save and load notes from notes.json
-
----
-
-## 📦 Project Structure
-
-```
-summarizer/
-├── main.py            # CLI entry point
-├── summarizer.py      # Summarizer class + chunking
-├── note_manager.py    # NoteManager class
-├── notes.json         # Optional saved notes
-└── README.md
+```text
+app/
+  main.py
+  routers/
+  services/
+  models/
+  schemas/
+  db/
 ```
 
----
+## Setup (Local)
 
-## 🚀 Getting Started
+1. Install dependencies:
 
-### 1. Install dependencies
-pip install openai
+```bash
+pip install -r requirements.txt
+```
 
-### 2. Set your OpenAI API key
+2. Configure environment:
 
-You can input it at runtime, or store it in an .env file and load it with python-dotenv (optional extension).
+```bash
+copy .env.example .env
+```
 
-### 3. Run the program
-python main.py
+3. Start API:
 
----
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-## ✅ CLI Menu Options
+## API Endpoints
 
-1. Add new note → Enter text, get summary  
-2. View notes → List all saved notes  
-3. Save notes → Write to notes.json  
-4. Exit → End program
+### POST /ingest
 
----
+Request body:
 
-## 🧱 Tech Stack
+```json
+{
+  "title": "My Document",
+  "text": "Long text to summarize..."
+}
+```
 
-- Python 3.x  
-- OpenAI SDK  
-- JSON for persistence  
-- Object-Oriented Design (no external frameworks)
+Response includes:
+- document metadata
+- chunk summaries
+- final summary
+- status, duration, and token usage
 
----
+### GET /document/{id}
 
+Returns stored document metadata and summaries for a previously ingested document.
+
+## Tests
+
+Run:
+
+```bash
+pytest -q
+```
+
+Covers:
+- `POST /ingest` happy path
+- `GET /document/{id}` happy path
+- `GET /document/{id}` 404
+- `POST /ingest` 422 validation
+
+## Docker
+
+1. Build and run:
+
+```bash
+docker compose up --build
+```
+
+2. API available at:
+
+`http://localhost:8000`
+
+## Notes
+
+- `OPENAI_API_KEY` is required for real OpenAI processing.
+- Processing is synchronous in `POST /ingest`.
+- SQLite is used for persistence (`DATABASE_URL`, default `sqlite:///./app.db`).
