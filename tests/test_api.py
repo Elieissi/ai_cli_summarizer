@@ -1,15 +1,21 @@
-﻿from app.services import ingestion_service
+from app.db.session import DATABASE_URL
+from app.services import ingestion_service
 from app.services.openai_service import UsageTotals
 
 
+class FakeOpenAIService:
+    def summarize_chunk(self, chunk_text: str):
+        return f"summary:{chunk_text[:20]}", UsageTotals(prompt_tokens=10, completion_tokens=5)
+
+    def combine_summaries(self, chunk_summaries: list[str]):
+        return "final-summary", UsageTotals(prompt_tokens=3, completion_tokens=2)
+
+
+def test_database_url_isolated_for_tests() -> None:
+    assert DATABASE_URL.endswith("tests/test_app.db")
+
+
 def test_ingest_and_get_document_happy_path(client, monkeypatch) -> None:
-    class FakeOpenAIService:
-        def summarize_chunk(self, chunk_text: str):
-            return f"summary:{chunk_text[:20]}", UsageTotals(prompt_tokens=10, completion_tokens=5)
-
-        def combine_summaries(self, chunk_summaries: list[str]):
-            return "final-summary", UsageTotals(prompt_tokens=3, completion_tokens=2)
-
     monkeypatch.setattr(ingestion_service, "OpenAIService", FakeOpenAIService)
 
     ingest_payload = {
@@ -46,3 +52,30 @@ def test_get_document_not_found(client) -> None:
 def test_ingest_validation_error_for_whitespace_text(client) -> None:
     response = client.post("/ingest", json={"title": "Bad", "text": "   "})
     assert response.status_code == 422
+
+
+def test_ingest_internal_errors_are_sanitized(client, monkeypatch) -> None:
+    class BrokenOpenAIService:
+        def summarize_chunk(self, chunk_text: str):
+            raise RuntimeError("secret failure details")
+
+        def combine_summaries(self, chunk_summaries: list[str]):
+            return "unused", UsageTotals(prompt_tokens=0, completion_tokens=0)
+
+    monkeypatch.setattr(ingestion_service, "OpenAIService", BrokenOpenAIService)
+
+    response = client.post(
+        "/ingest",
+        json={"title": "Doc", "text": "A test body that triggers a failure."},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Ingestion failed"
+
+
+def test_health_endpoint_returns_ok(client) -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["db"] == "ok"

@@ -1,4 +1,4 @@
-﻿import json
+import json
 import time
 from datetime import datetime, timezone
 
@@ -39,7 +39,6 @@ class IngestionService:
 
         try:
             chunks = self.chunking_service.chunk_text(text)
-            chunk_models: list[Chunk] = []
             chunk_summaries: list[ChunkSummary] = []
             intermediate_summaries: list[str] = []
             usage_totals = UsageTotals()
@@ -51,7 +50,6 @@ class IngestionService:
 
                 summary, usage = openai_service.summarize_chunk(chunk_text)
                 chunk_model.summary = summary
-                chunk_models.append(chunk_model)
 
                 chunk_summaries.append(
                     ChunkSummary(chunk_index=idx, chunk_text=chunk_text, summary=summary)
@@ -95,10 +93,17 @@ class IngestionService:
             return IngestResponse(**response_payload)
 
         except Exception as exc:
-            document.status = "failed"
-            document.processing_duration_ms = int((time.perf_counter() - started) * 1000)
-            document.error_message = str(exc)
-            self.db.commit()
+            duration = int((time.perf_counter() - started) * 1000)
+            self.db.rollback()
+            try:
+                failed_document = self.db.get(Document, document.id)
+                if failed_document is not None:
+                    failed_document.status = "failed"
+                    failed_document.processing_duration_ms = duration
+                    failed_document.error_message = str(exc)
+                    self.db.commit()
+            except Exception:
+                self.db.rollback()
             raise
 
     def get_document(self, document_id: int) -> DocumentResponse | None:
